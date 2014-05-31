@@ -1,18 +1,25 @@
-class InvalidAPICallException(Exception):
-    method = ""
-    endpoint = ""
-    
-    def __init__(self, method, endpoint, msg):
-        Exception.__init__(self, msg)
-        self.method = method
-        self.endpoint = endpoint
+class API_Exception(Exception):
+    message = "Unknown error"
+    http_status = "500 Server Error"
 
+    def __init__(self, http_status, msg):
+        super(API_Exception, self).__init__(msg)
+        self.message = msg
+        self.http_status = http_status
+        
     def as_string(self):
-        return "Invalid API call {%s %s}: %s" % (self.method, self.endpoint, self.args[0])
+        return self.message
 
-    def http_status(self):
-        return "400 Bad Request"
-    
-class InvalidAPIMethodException(InvalidAPICallException):
-    def http_status(self):
+    def get_http_status(self):
+        return self.http_status
+
+class Invalid_API_Call_Exception(API_Exception):
+    def __init__(self, method, endpoint, msg):
+        super(Invalid_API_Call_Exception, self).__init__("400 Bad Request", "Invalid API call {%s %s}: %s" % (method, endpoint, msg))
+
+class Invalid_API_Method_Exception(Invalid_API_Call_Exception):
+    def __init__(self, method, endpoint, msg):
+        super(Invalid_API_Method_Exception, self).__init__(method, endpoint, msg)
+
+    def get_http_status(self):
         return "405 Method Not Allowed"
