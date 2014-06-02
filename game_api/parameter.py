@@ -2,6 +2,7 @@ from datetime import datetime
 import base64
 import xml.etree.ElementTree as ET
 from game_api.exceptions import API_Exception
+from json import loads
 
 class Parameter_Type(object):
     @classmethod
@@ -34,7 +35,7 @@ class Date_Time_Parameter_Type(Parameter_Type):
     def get_value_from_raw(cls, raw_value):
         return datetime.fromtimestamp(float(raw_value))
 
-class Boolean_Parameter_Type(object):
+class Boolean_Parameter_Type(Parameter_Type):
     @classmethod
     def get_value_from_raw(cls, raw_value):
         ret_value = None
@@ -43,8 +44,16 @@ class Boolean_Parameter_Type(object):
         elif raw_value == 'false':
             ret_value = False
         else:
-            raise Invalid_Parameter_Exception(self.name, "Only \"true\" and \"false\" are acceptable values for a boolean.")
+            raise ValueError("Only \"true\" and \"false\" are acceptable values for a boolean.")
         return ret_value
+
+class Array_Parameter_Type(Parameter_Type):
+    @classmethod
+    def get_value_from_raw(cls, raw_array_value):
+        if not isinstance(raw_array_value, list):
+            raise ValueError("This argument is expected to be a list.")
+        return raw_array_value
+            
 
 class Parameter(object):
     name = None
@@ -63,7 +72,10 @@ class Parameter(object):
     def get_value(self, passed_in_value):
         param_value = self.default
         if passed_in_value is not None:
-            param_value = self.parameter_type.get_value_from_raw(passed_in_value)
+            try:
+                param_value = self.parameter_type.get_value_from_raw(passed_in_value)
+            except ValueError as e:
+                raise Invalid_Parameter_Exception(self.name, e.args[0])
         if self.required is True and param_value is None:
             raise Invalid_Parameter_Exception(self.name, "this parameter is required.")
         return param_value

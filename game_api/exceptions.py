@@ -23,3 +23,7 @@ class Invalid_API_Method_Exception(Invalid_API_Call_Exception):
 
     def get_http_status(self):
         return "405 Method Not Allowed"
+
+class Authorization_Exception(API_Exception):
+    def __init__(self, message):
+        super(Authorization_Exception, self).__init__("401 Unauthorized", message)

@@ -2,12 +2,30 @@ from json import dumps, loads
 from game_api.exceptions import *
 from game_api.parameter import Parameter, Invalid_Parameter_Exception
 from urlparse import parse_qsl
+from re import subn
+from model.user_model import User
+from model.db_session import DB_Session_Factory
+from datetime import datetime, date
+import time
+import requests
 
 class HTTP_Response_Builder(object):
     warnings = []
     resource_id = None
+    user = None
+    request_headers = {}
 
-    def __init__(self, query_string, body_stream, content_length, resource_id):
+    def __init__(self, env, resource_id):
+        query_string = env.get('QUERY_STRING', '')
+        body_stream = env.get('wsgi.input', None)
+        content_length = int(env.get('CONTENT_LENGTH', 0))
+        self.user = None
+        self.request_headers = {}
+        for key in env:
+            (header_name, num_subs) = subn(r'^HTTP_', '', key)
+            if num_subs is 1:
+                self.request_headers[header_name] = env[key]
+
         self.warnings = []
         self.resource_id = resource_id
         passed_in_param_dict= {}
@@ -15,8 +33,11 @@ class HTTP_Response_Builder(object):
             body_str = body_stream.read(content_length)
             try:
                 passed_in_param_dict = loads(body_str)
+                if not isinstance(passed_in_param_dict, dict):
+                    raise ValueError("The HTTP body must be a dictionary")
             except ValueError as e:
-                raise API_Exception("400 Bad Request", "The HTTP body must be JSON-encoded.")
+                error_log.write(e.args[0])
+                raise API_Exception("400 Bad Request", "The HTTP body must be a JSON-encoded dictionary.")
         query_param_list = {}
         if query_string:
             try:
@@ -36,9 +57,28 @@ class HTTP_Response_Builder(object):
             setattr(self, param_name, param_value)
         if any(passed_in_param_dict):
             self.warnings.append({"unused_arguments" : passed_in_param_dict})
+        self.authenticate()
+
+    def authenticate(self):
+        auth_header = self.request_headers.get('AUTHORIZATION', None)
+        if auth_header is not None:
+            self.user = User.get_by_fb_access_token(auth_header)
+            if self.user is None:
+                fb_response = requests.get('https://graph.facebook.com/v2.0/me?access_token=' + auth_header)
+                if fb_response.status_code is not 200:
+                    raise Authorization_Exception("Unable to authenticate user with Facebook.")
+                user_dict = fb_response.json()
+                user = User(user_dict['id'], User.get_access_token(auth_header), user_dict.get('first_name', 'unknown_name'), user_dict.get('last_name', None))
+                db_session = DB_Session_Factory.get_db_session()
+                db_session.merge(user)
+                db_session.commit()
+                self.user = user
+        else:
+            raise Authorization_Exception("Unable to authenticate user. Please pass in authentication credentials via the Authorization header")
         
     def finalize_http_response(self, http_response):
-        http_response.add_to_body('warnings', self.warnings)
+        if self.warnings:
+            http_response.add_to_body('warnings', self.warnings)
         return http_response
 
     def do_controller_specific_work(self):
@@ -67,7 +107,8 @@ class HTTP_Response(object):
     
     def get_body_string(self):
         if self.serialized_body_cache is None:
-            self.serialized_body_cache = dumps(self.body)
+            dthandler = lambda obj: ( time.mktime(obj.utctimetuple()) if isinstance(obj, datetime) or isinstance(obj, date) else None )
+            self.serialized_body_cache = dumps(self.body, default = dthandler)
         return self.serialized_body_cache
     
     def get_headers(self):

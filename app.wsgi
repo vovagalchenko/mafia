@@ -20,6 +20,7 @@ def application(environ, start_response):
     import game_api
     from game_api.exceptions import API_Exception
     from game_api.http_response_builder import HTTP_Response
+    from model.db_session import DB_Session_Factory
 
     try:
         controller = get_controller(environ)
@@ -29,6 +30,8 @@ def application(environ, start_response):
     except Exception as e:
         traceback.print_exc(file=error_log)
         response = HTTP_Response("500 Server Error", {'error' : 'Unexpected backend issue'})
+    finally:
+        DB_Session_Factory.cleanup()
 
     start_response(response.get_status(), response.get_headers())
     return response.get_body_string()
@@ -65,6 +68,7 @@ def get_controller(env):
             resource_module_name = 'game_api.' + resource
             resource_module = __import__(resource_module_name)
         except ImportError as e:
+            traceback.print_exc(file=error_log)
             raise game_api.exceptions.Invalid_API_Call_Exception(http_method, endpoint, "Invalid resource <%s>" % (resource))
 
         resource_id = endpoint_list[1] if len(endpoint_list) is 2 else None
@@ -84,9 +88,10 @@ def get_controller(env):
         try:
             action_module = __import__(resource_module_name + '.' + action, fromlist = [class_name])
         except ImportError as e:
+            traceback.print_exc(file=error_log)
             raise game_api.exceptions.Invalid_API_Call_Exception(http_method, endpoint, "%s operation is not implemented" % (class_name))
         klass = getattr(action_module, class_name)
-        controller = klass(env.get('QUERY_STRING', ''), env.get('wsgi.input', None), content_length, resource_id)
+        controller = klass(env, resource_id)
     else:
         raise game_api.exceptions.Invalid_API_Call_Exception(http_method, endpoint, "Please specify what API call you would like to make.")
     return controller
