@@ -107,7 +107,11 @@ class HTTP_Response(object):
     
     def get_body_string(self):
         if self.serialized_body_cache is None:
-            dthandler = lambda obj: ( time.mktime(obj.utctimetuple()) if isinstance(obj, datetime) or isinstance(obj, date) else None )
+            dthandler = lambda obj: (
+                time.mktime(obj.utctimetuple())
+                if isinstance(obj, datetime)
+                or isinstance(obj, date)
+                else "<UNSERIALIZABLE_OBJECT>")
             self.serialized_body_cache = dumps(self.body, default = dthandler)
         return self.serialized_body_cache
     
