@@ -6,7 +6,7 @@ from re import subn
 from model.user_model import User
 from model.db_session import DB_Session_Factory
 from datetime import datetime, date
-import time
+from lib.time_utils import dt_to_timestamp
 import requests
 
 class HTTP_Response_Builder(object):
@@ -108,7 +108,7 @@ class HTTP_Response(object):
     def get_body_string(self):
         if self.serialized_body_cache is None:
             dthandler = lambda obj: (
-                time.mktime(obj.utctimetuple())
+                dt_to_timestamp(obj)
                 if isinstance(obj, datetime)
                 or isinstance(obj, date)
                 else "<UNSERIALIZABLE_OBJECT>")

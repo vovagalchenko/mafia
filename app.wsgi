@@ -15,7 +15,7 @@ def application(environ, start_response):
     # Make the error log global
     import __builtin__
     __builtin__.error_log = environ['wsgi.errors']
-    
+
     global game_api
     import game_api
     from game_api.exceptions import API_Exception

@@ -1,8 +1,8 @@
-from datetime import datetime
 import base64
 import xml.etree.ElementTree as ET
 from game_api.exceptions import API_Exception
 from json import loads
+from lib.time_utils import timestamp_to_dt
 
 class Parameter_Type(object):
     @classmethod
@@ -33,7 +33,7 @@ class Base_64_Encoded_XML_Parameter_Type(Base_64_Encoded_String_Parameter_Type):
 class Date_Time_Parameter_Type(Parameter_Type):
     @classmethod
     def get_value_from_raw(cls, raw_value):
-        return datetime.fromtimestamp(float(raw_value))
+        return timestamp_to_dt(raw_value)
 
 class Boolean_Parameter_Type(Parameter_Type):
     @classmethod

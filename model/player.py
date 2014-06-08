@@ -15,3 +15,13 @@ class Player(Base, Mafia_Model_Mixin):
         self.game_id = game_id
         if role is not None:
             self.role = role
+
+    def for_api(self, asking_player):
+        all_columns = super(Player, self).for_api()
+        is_dead = self.role == 'GHOST'
+        is_in_game = self.role != 'INVITED'
+        if is_dead or (asking_player.player_id != all_columns['player_id'] and not(asking_player.role == 'MAFIA' and self.role == 'MAFIA')):
+            all_columns.pop('role', None)
+        all_columns['is_dead'] = is_dead
+        all_columns['is_in_game'] = is_in_game
+        return all_columns
