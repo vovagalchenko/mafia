@@ -20,7 +20,7 @@ class update_game(HTTP_Response_Builder):
             db_session = DB_Session_Factory.get_db_session()
             player = db_session.query(Player).filter(Player.game_id == self.resource_id, Player.user_id == self.user.user_id).first()
             game = db_session.query(Game).get(self.resource_id)
-            if self.vote is not None and not (((game.game_state == 'DAY' or game.game_state == 'DUSK') and (player.role == 'CITIZEN' or player.role == 'MAFIA')) or ((game.game_state == 'NIGHT' or game.game_state == 'DAWN') and player.role == 'MAFIA')):
+            if self.vote is not None and (player.status != 'ALIVE' or (not (((game.game_state == 'DAY' or game.game_state == 'DUSK') and (player.role == 'CITIZEN' or player.role == 'MAFIA')) or ((game.game_state == 'NIGHT' or game.game_state == 'DAWN') and player.role == 'MAFIA')))):
                 raise API_Exception("400 Bad Request", "You are not authorized to vote at this time.")
             elif self.vote == player.player_id:
                 raise API_Exception("400 Bad Request", "You can't vote to eliminate yourself.")
@@ -30,14 +30,14 @@ class update_game(HTTP_Response_Builder):
                 player_to_vote_to_eliminate = db_session.query(Player).filter(Player.player_id == self.vote, Player.game_id == self.resource_id).first()
                 if player_to_vote_to_eliminate is None:
                     raise API_Exception("400 Bad Request", "Unable to find a player in this game you're voting to eliminate.")
-                if player_to_vote_to_eliminate.role == 'GHOST':
+                if player_to_vote_to_eliminate.status == 'DEAD':
                     raise API_Exception("400 Bad Request", "This player is already eliminated.")
                 player.current_vote = self.vote
             
             game_event = Game_Event(game.game_id, game.game_state, self.vote, self.comment, player.player_id, None)
             db_session.add(game_event)
-            if player.role == 'INVITED':
-                player.role = 'ACCEPTED'
+            if player.status == 'INVITED':
+                player.status = 'ALIVE'
             db_session.add(player)
             db_session.commit()
             should_kick_off_timer = False
@@ -46,7 +46,7 @@ class update_game(HTTP_Response_Builder):
                 players = db_session.query(Player).filter(Player.game_id == self.resource_id).all()
                 everyone_accepted = True
                 for one_player in players:
-                    if one_player.role != 'ACCEPTED':
+                    if one_player.status == 'INVITED':
                         everyone_accepted = False
                         break
                 if everyone_accepted:
@@ -58,7 +58,7 @@ class update_game(HTTP_Response_Builder):
                     game.game_state = 'NIGHT'
             elif game.game_state == 'NIGHT':
                 if self.vote is not None:
-                    mafia_players = db_session.query(Player).filter(Player.game_id == self.resource_id, Player.role == 'MAFIA')
+                    mafia_players = db_session.query(Player).filter(Player.game_id == self.resource_id, Player.role == 'MAFIA', Player.status == 'ALIVE')
                     all_mafia_voted = True
                     for mafia_player in mafia_players:
                         if mafia_player.current_vote is None:
@@ -69,7 +69,7 @@ class update_game(HTTP_Response_Builder):
                         should_kick_off_timer = True
             elif game.game_state == 'DAY':
                 if self.vote is not None:
-                    active_players = db_session.query(Player).filter(Player.game_id == self.resource_id, or_(Player.role == 'MAFIA',Player.role == 'CITIZEN'))
+                    active_players = db_session.query(Player).filter(Player.game_id == self.resource_id, Player.status == 'ALIVE')
                     all_active_players_voted = True
                     for active_player in active_players:
                         if active_player.current_vote is None:
@@ -91,6 +91,6 @@ class update_game(HTTP_Response_Builder):
                 stdout_handle = open("/home/vova/mafia/data/apache_logs/stdout.tmp", "w")
                 stderr_handle = open("/home/vova/mafia/data/apache_logs/stderr.tmp", "w")
                 Popen(command, shell = True, stdout = stdout_handle, stderr = stderr_handle)
-            return HTTP_Response("200 OK", game.for_api(player))
+            return HTTP_Response("200 OK", game.for_api(player, game.created))
         else:
             raise Authorization_Exception("Either there's no game with this id, or you don't have authorization to update it.")

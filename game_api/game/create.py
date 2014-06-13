@@ -24,7 +24,7 @@ class create_game(HTTP_Response_Builder):
                 db_session.flush()
             player = Player(invited_user_id, game.game_id, 'INVITED')
             db_session.add(player)
-        inviting_player = Player(self.user.user_id, game.game_id, 'ACCEPTED')
+        inviting_player = Player(self.user.user_id, game.game_id, 'ALIVE')
         db_session.add(inviting_player)
         db_session.commit()
         return HTTP_Response('200 OK', {'game' : game.for_api(inviting_player)})

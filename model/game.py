@@ -30,16 +30,16 @@ class Game(Base, Mafia_Model_Mixin):
                 mafia_player_ids.append(player.player_id)
         num_events_limit = 20
         conditions = [Game_Event.game_id == self.game_id]
-        if asking_player.role != 'MAFIA' and len(mafia_player_ids) > 0:
-            conditions.append(not_(and_(Game_Event.game_state == 'NIGHT', Game_Event.from_player_id.in_(mafia_player_ids))))
         if min_time is not None:
+            if asking_player.role != 'MAFIA' and len(mafia_player_ids) > 0:
+                conditions.append(not_(and_(Game_Event.game_state == 'NIGHT', Game_Event.from_player_id.in_(mafia_player_ids))))
             conditions.append(Game_Event.created > min_time)
-        game_events = map(lambda game_event: game_event.for_api(), db_session.query(Game_Event).filter(*conditions).order_by(Game_Event.created.asc()).limit(num_events_limit).all())
-        all_columns['game_events'] = {
-            'limit' : num_events_limit,
-            'min_time' : min_time,
-            'events' : game_events
-        }
+            game_events = map(lambda game_event: game_event.for_api(), db_session.query(Game_Event).filter(*conditions).order_by(Game_Event.created.asc()).limit(num_events_limit).all())
+            all_columns['game_events'] = {
+                'limit' : num_events_limit,
+                'min_time' : min_time,
+                'events' : game_events
+            }
         return all_columns
 
 class Game_Event(Base, Mafia_Model_Mixin):

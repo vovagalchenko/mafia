@@ -36,9 +36,10 @@ def main(argv):
 
     voting_player_conditions = [Player.game_id == game_id]
     if game.game_state == 'DUSK':
-        voting_player_conditions.append(Player.role != 'GHOST')
+        voting_player_conditions.append(Player.status == 'ALIVE')
     elif game.game_state == 'DAWN':
         voting_player_conditions.append(Player.role == 'MAFIA')
+        voting_player_conditions.append(Player.status == 'ALIVE')
     else:
         exit_with_msg("There is no vote to finalize.")
 
@@ -68,10 +69,10 @@ def main(argv):
     for player in all_players:
         player.current_vote = None
         if player.player_id == killed_player_id:
-            player.role = 'GHOST'
-        elif player.role == 'MAFIA':
+            player.status = 'DEAD'
+        elif player.role == 'MAFIA' and player.status == 'ALIVE':
             num_mafia += 1
-        elif player.role != 'GHOST':
+        elif player.status == 'ALIVE':
             num_non_mafia += 1
         db_session.add(player)
     game_event_msg = ""
