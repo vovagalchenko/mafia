@@ -1,5 +1,5 @@
 from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy import Column, func
+from sqlalchemy import Column, func, Integer, text
 from sqlalchemy.types import DateTime, TypeDecorator
 from datetime import datetime
 from pytz import utc, timezone
@@ -21,7 +21,10 @@ class Mafia_Model_Mixin(object):
 
     created = Column(UTCDateTime(True), nullable = False, server_default = func.current_timestamp())
     updated = Column(UTCDateTime(True), nullable = False, server_default = func.current_timestamp(), onupdate = func.current_timestamp())
+    version = Column('version', Integer, nullable = False, server_default = text('0'), onupdate = text('version + 1'))
+
     # Below is a hack to make sure the mixin columns are added to the end of the actual model columns
+    version._creation_order = 9997
     updated._creation_order = 9998
     created._creation_order = 9999
 
